@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>INVICTUS — UNCONQUERED.</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+:root {
+  --bg:#090b10; --panel:#121620; --line:#252b38;
+  --text:#f1f3f8; --muted:#8c95a7; --accent:#b8a0ff;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);
+font-family:Inter,system-ui,Arial,sans-serif;min-height:100vh}
+main{width:min(100% - 32px,520px);margin:45px auto}
+header{margin-bottom:35px}
+.logo{font-size:30px;font-weight:900;letter-spacing:5px}
+.tag{font-size:11px;letter-spacing:4px;color:var(--accent);margin-top:7px}
+.credit{font-size:11px;color:var(--muted);margin-top:13px}
+.panel{background:var(--panel);border:1px solid var(--line);
+border-radius:17px;padding:23px;margin-bottom:15px}
+h2{font-size:19px;margin:0 0 8px}
+p{color:var(--muted);font-size:13px;line-height:1.6}
+input,select,button{width:100%;padding:14px;border-radius:10px;
+border:1px solid var(--line);background:#0b0e15;color:var(--text);
+font:inherit;margin-top:10px}
+button{background:var(--accent);color:#11101a;font-weight:750;
+border:0;cursor:pointer}
+button.secondary{background:#202637;color:var(--text)}
+button.danger{background:#542b38;color:white}
+.tabs{display:flex;gap:8px;margin-bottom:16px}
+.tabs button{margin:0}
+.hidden{display:none!important}
+.message{font-size:13px;margin-top:13px;color:var(--accent)}
+.task{display:flex;align-items:center;gap:12px;padding:13px 0;
+border-bottom:1px solid var(--line)}
+.task input{width:19px;height:19px;margin:0;accent-color:var(--accent)}
+.task span{flex:1;font-size:14px}
+.small{font-size:11px;color:var(--muted)}
+.row{display:flex;justify-content:space-between;align-items:center;gap:10px}
+.row button{width:auto;padding:10px 14px;margin:0}
+.stat{font-size:28px;font-weight:800;margin-top:8px}
+footer{text-align:center;color:#697184;font-size:11px;margin:35px 0}
+</style>
+</head>
+<body>
+<main>
+<header>
+  <div class="logo">INVICTUS</div>
+  <div class="tag">UNCONQUERED.</div>
+  <div class="credit">Entangled by Dheeraj</div>
+</header>
+
+<section id="auth">
+  <div class="panel">
+    <div class="tabs">
+      <button id="loginTab" onclick="showTab('login')">LOGIN</button>
+      <button class="secondary" id="registerTab" onclick="showTab('register')">REGISTER</button>
+    </div>
+
+    <div id="loginForm">
+      <h2>Welcome back.</h2>
+      <p>Enter your credentials to continue.</p>
+      <input id="loginUsername" placeholder="Username" autocomplete="username">
+      <input id="loginPassword" type="password" placeholder="Password" autocomplete="current-password">
+      <button onclick="login()">Sign in</button>
+    </div>
+
+    <div id="registerForm" class="hidden">
+      <h2>Request access.</h2>
+      <p>New accounts require creator approval.</p>
+      <input id="regPasscode" type="password" placeholder="Access passcode">
+      <input id="regUsername" placeholder="Choose username (3–20 characters)">
+      <input id="regPassword" type="password" placeholder="Choose password (minimum 8 characters)">
+      <select id="regStream">
+        <option value="PCM_CS">PCM + Computer Science</option>
+        <option value="PCM_BIO">PCM + Biology</option>
+      </select>
+      <button onclick="register()">Submit registration</button>
+    </div>
+    <div id="authMessage" class="message"></div>
+  </div>
+</section>
+
+<section id="pending" class="hidden panel">
+  <h2>Request received.</h2>
+  <p>Your registration is awaiting approval from the creator. Please check again later.</p>
+  <button class="secondary" onclick="logout()">Return to login</button>
+</section>
+
+<section id="dashboard" class="hidden">
+  <div class="panel">
+    <div class="row">
+      <div>
+        <div class="small">SIGNED IN AS</div>
+        <h2 id="welcomeName">User</h2>
+      </div>
+      <button class="secondary" onclick="logout()">Logout</button>
+    </div>
+    <p id="streamLabel"></p>
+    <div class="small">TODAY'S COMPLETION</div>
+    <div class="stat" id="progressCount">0 / 0</div>
+  </div>
+
+  <div id="taskArea" class="panel">
+    <h2>Academics</h2>
+    <div id="taskList"><p>Loading tasks...</p></div>
+    <input id="newTask" placeholder="Add a personal task">
+    <button class="secondary" onclick="addTask()">+ Add custom task</button>
+  </div>
+
+  <div id="adminArea" class="panel hidden">
+    <h2>Creator control</h2>
+    <p>Pending registration requests</p>
+    <div id="requestList">Loading requests...</div>
+  </div>
+</section>
+
+<footer>INVICTUS · UNCONQUERED.</footer>
+</main>
+
+<script>
+const SUPABASE_URL = "https://knxprrltvmsbegrejqgn.supabase.co";
+const SUPABASE_ANON_KEY = "sb_publishable_ZHB5pnHhS5XC5fzV2VPLbA_OmQwCJCT";
+
+const configured =
+  !SUPABASE_URL.startsWith("YOUR_") &&
+  !SUPABASE_ANON_KEY.startsWith("YOUR_");
+
+let db = null;
+let currentUser = null;
+let currentProfile = null;
+let tasks = [];
+let progress = [];
+
+if (configured) {
+  db = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+}
+
+function showMessage(text) {
+  document.getElementById("authMessage").textContent = text;
+}
+
+function showTab(tab) {
+  document.getElementById("loginForm").classList.toggle("hidden", tab !== "login");
+  document.getElementById("registerForm").classList.toggle("hidden", tab !== "register");
+  document.getElementById("loginTab").classList.toggle("secondary", tab !== "login");
+  document.getElementById("registerTab").classList.toggle("secondary", tab !== "register");
+  showMessage("");
+}
+
+function showScreen(id) {
+  ["auth","pending","dashboard"].forEach(x =>
+    document.getElementById(x).classList.add("hidden")
+  );
+  document.getElementById(id).classList.remove("hidden");
+}
+
+async function register() {
+  if (!configured) return showMessage("Add your Supabase project URL and anon key first.");
+
+  const username = document.getElementById("regUsername").value.trim();
+  const password = document.getElementById("regPassword").value;
+  const passcode = document.getElementById("regPasscode").value;
+  const stream = document.getElementById("regStream").value;
+
+  showMessage("Submitting registration...");
+
+  try {
+    const response = await fetch(SUPABASE_URL + "/functions/v1/register-user", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "apikey": SUPABASE_ANON_KEY
+      },
+      body: JSON.stringify({username,password,passcode,stream})
+    });
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.error || "Registration failed.");
+    showMessage(result.message || "Registration submitted.");
+  } catch (e) {
+    showMessage(e.message);
+  }
+}
+
+async function login() {
+  if (!configured) return showMessage("Add your Supabase project URL and anon key first.");
+
+  const username = document.getElementById("loginUsername").value.trim();
+  const password = document.getElementById("loginPassword").value;
+  showMessage("Signing in...");
+
+  try {
+    const response = await fetch(SUPABASE_URL + "/functions/v1/username-login", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "apikey": SUPABASE_ANON_KEY
+      },
+      body: JSON.stringify({username,password})
+    });
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.error || "Login failed.");
+
+    const {error} = await db.auth.setSession({
+      access_token: result.access_token,
+      refresh_token: result.refresh_token
+    });
+    if (error) throw error;
+
+    currentUser = result.user;
+    await loadProfile();
+  } catch(e) {
+    showMessage(e.message);
+  }
+}
+
+async function loadProfile() {
+  const {data,error} = await db.from("profiles")
+    .select("username,stream,role,status")
+    .eq("id", (await db.auth.getUser()).data.user.id)
+    .single();
+
+  if (error) return showMessage("Could not load your profile.");
+  currentProfile = data;
+
+  if (data.status === "pending") return showScreen("pending");
+  if (data.status !== "approved") {
+    await logout();
+    return showMessage("This account is not active.");
+  }
+
+  document.getElementById("welcomeName").textContent = data.username;
+  document.getElementById("streamLabel").textContent =
+    data.stream === "PCM_CS" ? "PCM + Computer Science" : "PCM + Biology";
+
+  showScreen("dashboard");
+
+  if (data.role === "admin" && data.username === "DHEERAJ") {
+    document.getElementById("adminArea").classList.remove("hidden");
+    loadRequests();
+  }
+
+  await loadTasks();
+}
+
+async function loadTasks() {
+  const {data,error} = await db.from("tasks")
+    .select("*")
+    .eq("is_active",true)
+    .order("created_at");
+
+  if (error) {
+    document.getElementById("taskList").textContent = "Could not load tasks.";
+    return;
+  }
+  tasks = data || [];
+
+  const today = new Date().toLocaleDateString("en-CA");
+  const {data:records} = await db.from("daily_progress")
+    .select("*")
+    .eq("user_id", (await db.auth.getUser()).data.user.id)
+    .eq("task_date",today);
+
+  progress = records || [];
+  renderTasks();
+}
+
+function renderTasks() {
+  const list = document.getElementById("taskList");
+  list.innerHTML = "";
+
+  tasks.forEach(task => {
+    const done = progress.some(p => p.task_id === task.id && p.completed);
+    const item = document.createElement("label");
+    item.className = "task";
+
+    const checkbox = document.createElement("input");
+    checkbox.type = "checkbox";
+    checkbox.checked = done;
+    checkbox.addEventListener("change", () => toggleTask(task, checkbox.checked));
+
+    const name = document.createElement("span");
+    name.textContent = task.title;
+
+    const tag = document.createElement("small");
+    tag.className = "small";
+    tag.textContent = task.is_core ? "CORE" : "PERSONAL";
+
+    item.append(checkbox,name,tag);
+    list.append(item);
+  });
+
+  const completed = progress.filter(p => p.completed).length;
+  document.getElementById("progressCount").textContent =
+    completed + " / " + tasks.length;
+}
+
+async function toggleTask(task, completed) {
+  const today = new Date().toLocaleDateString("en-CA");
+  const userId = (await db.auth.getUser()).data.user.id;
+
+  const {data:existing} = await db.from("daily_progress")
+    .select("id")
+    .eq("user_id",userId)
+    .eq("task_id",task.id)
+    .eq("task_date",today)
+    .maybeSingle();
+
+  let result;
+  if (existing) {
+    result = await db.from("daily_progress")
+      .update({completed})
+      .eq("id",existing.id);
+  } else {
+    result = await db.from("daily_progress")
+      .insert({user_id:userId,task_id:task.id,task_date:today,completed});
+  }
+
+  if (result.error) {
+    alert("Could not update task: " + result.error.message);
+    return;
+  }
+  await loadTasks();
+}
+
+async function addTask() {
+  const title = document.getElementById("newTask").value.trim();
+  if (!title) return;
+
+  const userId = (await db.auth.getUser()).data.user.id;
+  const {error} = await db.from("tasks").insert({
+    owner_id:userId,
+    title,
+    category:"Academics",
+    subject:"Personal",
+    is_core:false,
+    stream_scope:currentProfile.stream,
+    is_active:true
+  });
+
+  if (error) return alert("Could not add task: " + error.message);
+  document.getElementById("newTask").value = "";
+  await loadTasks();
+}
+
+async function adminAction(action,username) {
+  const {data:{session}} = await db.auth.getSession();
+
+  const response = await fetch(SUPABASE_URL + "/functions/v1/admin-manage-users", {
+    method:"POST",
+    headers:{
+      "Content-Type":"application/json",
+      "apikey":SUPABASE_ANON_KEY,
+      "Authorization":"Bearer " + session.access_token
+    },
+    body:JSON.stringify({action,username})
+  });
+
+  const result = await response.json();
+  if (!response.ok) return alert(result.error || "Admin action failed.");
+  await loadRequests();
+}
+
+async function loadRequests() {
+  const {data:{session}} = await db.auth.getSession();
+  const response = await fetch(SUPABASE_URL + "/functions/v1/admin-manage-users", {
+    method:"POST",
+    headers:{
+      "Content-Type":"application/json",
+      "apikey":SUPABASE_ANON_KEY,
+      "Authorization":"Bearer " + session.access_token
+    },
+    body:JSON.stringify({action:"list"})
+  });
+
+  const result = await response.json();
+  const list = document.getElementById("requestList");
+  list.innerHTML = "";
+
+  if (!response.ok) {
+    list.textContent = result.error || "Could not load requests.";
+    return;
+  }
+
+  if (!result.requests.length) {
+    list.textContent = "No pending requests.";
+    return;
+  }
+
+  result.requests.forEach(request => {
+    const box = document.createElement("div");
+    box.className = "task";
+    const info = document.createElement("span");
+    info.textContent = request.username + " · " + request.stream;
+    box.append(info);
+
+    ["approve","reject"].forEach(action => {
+      const btn = document.createElement("button");
+      btn.textContent = action;
+      btn.className = action === "reject" ? "danger" : "secondary";
+      btn.onclick = () => adminAction(action,request.username);
+      box.append(btn);
+    });
+    list.append(box);
+  });
+}
+
+async function logout() {
+  if (db) await db.auth.signOut();
+  currentUser = null;
+  currentProfile = null;
+  showScreen("auth");
+  showTab("login");
+}
+
+if (!configured) {
+  showMessage("Setup needed: add your Supabase project URL and anon key in the code.");
+}
+</script>
+</body>
+</html>
