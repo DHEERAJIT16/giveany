@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -28,7 +29,6 @@ font:inherit;margin-top:10px}
 button{background:var(--accent);color:#11101a;font-weight:750;
 border:0;cursor:pointer}
 button.secondary{background:#202637;color:var(--text)}
-button.danger{background:#542b38;color:white}
 .tabs{display:flex;gap:8px;margin-bottom:16px}
 .tabs button{margin:0}
 .hidden{display:none!important}
@@ -68,25 +68,19 @@ footer{text-align:center;color:#697184;font-size:11px;margin:35px 0}
     </div>
 
     <div id="registerForm" class="hidden">
-      <h2>Request access.</h2>
-      <p>New accounts require creator approval.</p>
+      <h2>Create your account.</h2>
+      <p>Enter the shared access passcode to register. Your account activates immediately.</p>
       <input id="regPasscode" type="password" placeholder="Access passcode">
-      <input id="regUsername" placeholder="Choose username (3–20 characters)">
-      <input id="regPassword" type="password" placeholder="Choose password (minimum 8 characters)">
+      <input id="regUsername" placeholder="Choose username (3–20 characters)" autocomplete="username">
+      <input id="regPassword" type="password" placeholder="Choose password (minimum 8 characters)" autocomplete="new-password">
       <select id="regStream">
         <option value="PCM_CS">PCM + Computer Science</option>
         <option value="PCM_BIO">PCM + Biology</option>
       </select>
-      <button onclick="register()">Submit registration</button>
+      <button onclick="register()">Create account</button>
     </div>
-    <div id="authMessage" class="message"></div>
+    <div id="authMessage" class="message" aria-live="polite"></div>
   </div>
-</section>
-
-<section id="pending" class="hidden panel">
-  <h2>Request received.</h2>
-  <p>Your registration is awaiting approval from the creator. Please check again later.</p>
-  <button class="secondary" onclick="logout()">Return to login</button>
 </section>
 
 <section id="dashboard" class="hidden">
@@ -109,12 +103,6 @@ footer{text-align:center;color:#697184;font-size:11px;margin:35px 0}
     <input id="newTask" placeholder="Add a personal task">
     <button class="secondary" onclick="addTask()">+ Add custom task</button>
   </div>
-
-  <div id="adminArea" class="panel hidden">
-    <h2>Creator control</h2>
-    <p>Pending registration requests</p>
-    <div id="requestList">Loading requests...</div>
-  </div>
 </section>
 
 <footer>INVICTUS · UNCONQUERED.</footer>
@@ -129,7 +117,6 @@ const configured =
   !SUPABASE_ANON_KEY.startsWith("YOUR_");
 
 let db = null;
-let currentUser = null;
 let currentProfile = null;
 let tasks = [];
 let progress = [];
@@ -151,7 +138,7 @@ function showTab(tab) {
 }
 
 function showScreen(id) {
-  ["auth","pending","dashboard"].forEach(x =>
+  ["auth","dashboard"].forEach(x =>
     document.getElementById(x).classList.add("hidden")
   );
   document.getElementById(id).classList.remove("hidden");
@@ -165,7 +152,7 @@ async function register() {
   const passcode = document.getElementById("regPasscode").value;
   const stream = document.getElementById("regStream").value;
 
-  showMessage("Submitting registration...");
+  showMessage("Creating your account...");
 
   try {
     const response = await fetch(SUPABASE_URL + "/functions/v1/register-user", {
@@ -178,7 +165,10 @@ async function register() {
     });
     const result = await response.json();
     if (!response.ok) throw new Error(result.error || "Registration failed.");
-    showMessage(result.message || "Registration submitted.");
+    showMessage(result.message || "Account created. You can now log in.");
+    showTab("login");
+    document.getElementById("loginUsername").value = username;
+    document.getElementById("loginPassword").value = "";
   } catch (e) {
     showMessage(e.message);
   }
@@ -209,7 +199,6 @@ async function login() {
     });
     if (error) throw error;
 
-    currentUser = result.user;
     await loadProfile();
   } catch(e) {
     showMessage(e.message);
@@ -217,15 +206,19 @@ async function login() {
 }
 
 async function loadProfile() {
+  const {data: authData, error: authError} = await db.auth.getUser();
+  if (authError || !authData.user) {
+    return showMessage("Could not verify your login session. Please sign in again.");
+  }
+
   const {data,error} = await db.from("profiles")
     .select("username,stream,role,status")
-    .eq("id", (await db.auth.getUser()).data.user.id)
+    .eq("id", authData.user.id)
     .single();
 
   if (error) return showMessage("Could not load your profile.");
   currentProfile = data;
 
-  if (data.status === "pending") return showScreen("pending");
   if (data.status !== "approved") {
     await logout();
     return showMessage("This account is not active.");
@@ -236,12 +229,6 @@ async function loadProfile() {
     data.stream === "PCM_CS" ? "PCM + Computer Science" : "PCM + Biology";
 
   showScreen("dashboard");
-
-  if (data.role === "admin" && data.username === "DHEERAJ") {
-    document.getElementById("adminArea").classList.remove("hidden");
-    loadRequests();
-  }
-
   await loadTasks();
 }
 
@@ -257,11 +244,19 @@ async function loadTasks() {
   }
   tasks = data || [];
 
+  const {data: authData} = await db.auth.getUser();
+  if (!authData.user) return;
+
   const today = new Date().toLocaleDateString("en-CA");
-  const {data:records} = await db.from("daily_progress")
+  const {data:records, error:progressError} = await db.from("daily_progress")
     .select("*")
-    .eq("user_id", (await db.auth.getUser()).data.user.id)
+    .eq("user_id", authData.user.id)
     .eq("task_date",today);
+
+  if (progressError) {
+    document.getElementById("taskList").textContent = "Could not load daily progress.";
+    return;
+  }
 
   progress = records || [];
   renderTasks();
@@ -299,14 +294,22 @@ function renderTasks() {
 
 async function toggleTask(task, completed) {
   const today = new Date().toLocaleDateString("en-CA");
-  const userId = (await db.auth.getUser()).data.user.id;
+  const {data:authData} = await db.auth.getUser();
+  if (!authData.user) return;
 
-  const {data:existing} = await db.from("daily_progress")
+  const userId = authData.user.id;
+
+  const {data:existing, error:lookupError} = await db.from("daily_progress")
     .select("id")
     .eq("user_id",userId)
     .eq("task_id",task.id)
     .eq("task_date",today)
     .maybeSingle();
+
+  if (lookupError) {
+    alert("Could not check task status: " + lookupError.message);
+    return;
+  }
 
   let result;
   if (existing) {
@@ -329,9 +332,11 @@ async function addTask() {
   const title = document.getElementById("newTask").value.trim();
   if (!title) return;
 
-  const userId = (await db.auth.getUser()).data.user.id;
+  const {data:authData} = await db.auth.getUser();
+  if (!authData.user) return alert("Please sign in again.");
+
   const {error} = await db.from("tasks").insert({
-    owner_id:userId,
+    owner_id:authData.user.id,
     title,
     category:"Academics",
     subject:"Personal",
@@ -345,71 +350,8 @@ async function addTask() {
   await loadTasks();
 }
 
-async function adminAction(action,username) {
-  const {data:{session}} = await db.auth.getSession();
-
-  const response = await fetch(SUPABASE_URL + "/functions/v1/admin-manage-users", {
-    method:"POST",
-    headers:{
-      "Content-Type":"application/json",
-      "apikey":SUPABASE_ANON_KEY,
-      "Authorization":"Bearer " + session.access_token
-    },
-    body:JSON.stringify({action,username})
-  });
-
-  const result = await response.json();
-  if (!response.ok) return alert(result.error || "Admin action failed.");
-  await loadRequests();
-}
-
-async function loadRequests() {
-  const {data:{session}} = await db.auth.getSession();
-  const response = await fetch(SUPABASE_URL + "/functions/v1/admin-manage-users", {
-    method:"POST",
-    headers:{
-      "Content-Type":"application/json",
-      "apikey":SUPABASE_ANON_KEY,
-      "Authorization":"Bearer " + session.access_token
-    },
-    body:JSON.stringify({action:"list"})
-  });
-
-  const result = await response.json();
-  const list = document.getElementById("requestList");
-  list.innerHTML = "";
-
-  if (!response.ok) {
-    list.textContent = result.error || "Could not load requests.";
-    return;
-  }
-
-  if (!result.requests.length) {
-    list.textContent = "No pending requests.";
-    return;
-  }
-
-  result.requests.forEach(request => {
-    const box = document.createElement("div");
-    box.className = "task";
-    const info = document.createElement("span");
-    info.textContent = request.username + " · " + request.stream;
-    box.append(info);
-
-    ["approve","reject"].forEach(action => {
-      const btn = document.createElement("button");
-      btn.textContent = action;
-      btn.className = action === "reject" ? "danger" : "secondary";
-      btn.onclick = () => adminAction(action,request.username);
-      box.append(btn);
-    });
-    list.append(box);
-  });
-}
-
 async function logout() {
   if (db) await db.auth.signOut();
-  currentUser = null;
   currentProfile = null;
   showScreen("auth");
   showTab("login");
