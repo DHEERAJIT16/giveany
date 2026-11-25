@@ -95,6 +95,8 @@ footer{text-align:center;color:#697184;font-size:11px;margin:35px 0}
     <p id="streamLabel"></p>
     <div class="small">TODAY'S COMPLETION</div>
     <div class="stat" id="progressCount">0 / 0</div>
+    <div class="small" style="margin-top:14px">CURRENT STREAK</div>
+    <div class="stat" id="streakCount">0 days</div>
   </div>
 
   <div id="taskArea" class="panel">
@@ -260,6 +262,7 @@ async function loadTasks() {
 
   progress = records || [];
   renderTasks();
+  loadStreak(authData.user.id);
 }
 
 function renderTasks() {
@@ -284,6 +287,15 @@ function renderTasks() {
     tag.textContent = task.is_core ? "CORE" : "PERSONAL";
 
     item.append(checkbox,name,tag);
+    if (!task.is_core) {
+      const del = document.createElement("button");
+      del.className = "secondary";
+      del.style.cssText = "width:auto;margin:0;padding:6px 10px";
+      del.textContent = "\u2715";
+      del.setAttribute("aria-label", "Delete task");
+      del.addEventListener("click", e => { e.preventDefault(); deleteTask(task); });
+      item.append(del);
+    }
     list.append(item);
   });
 
@@ -328,6 +340,27 @@ async function toggleTask(task, completed) {
   await loadTasks();
 }
 
+async function deleteTask(task) {
+  if (!confirm("Delete this task?")) return;
+  // soft delete keeps past progress rows valid
+  const {error} = await db.from("tasks").update({is_active:false}).eq("id",task.id);
+  if (error) return alert("Could not delete task: " + error.message);
+  await loadTasks();
+}
+
+// shortcut: reads the latest 1000 completed rows, so very long streaks cap out; move to a SQL view if that matters
+async function loadStreak(userId) {
+  const {data} = await db.from("daily_progress").select("task_date")
+    .eq("user_id",userId).eq("completed",true)
+    .order("task_date",{ascending:false}).limit(1000);
+  const days = new Set((data || []).map(r => r.task_date));
+  const d = new Date();
+  if (!days.has(d.toLocaleDateString("en-CA"))) d.setDate(d.getDate() - 1);
+  let n = 0;
+  while (days.has(d.toLocaleDateString("en-CA"))) { n++; d.setDate(d.getDate() - 1); }
+  document.getElementById("streakCount").textContent = n + (n === 1 ? " day" : " days");
+}
+
 async function addTask() {
   const title = document.getElementById("newTask").value.trim();
   if (!title) return;
@@ -360,6 +393,7 @@ async function logout() {
 if (!configured) {
   showMessage("Setup needed: add your Supabase project URL and anon key in the code.");
 }
+if (db) db.auth.getSession().then(({data}) => { if (data.session) loadProfile(); });
 </script>
 </body>
 </html>
