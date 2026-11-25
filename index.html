@@ -7,41 +7,45 @@
 <title>INVICTUS — UNCONQUERED.</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
-:root {
-  --bg:#090b10; --panel:#121620; --line:#252b38;
-  --text:#f1f3f8; --muted:#8c95a7; --accent:#b8a0ff;
+:root{
+  --bg:#f4f1ea; --panel:#fffdf8; --line:#d8d2c4;
+  --text:#1c1c1a; --muted:#5f5c53; --accent:#1f5c4a;
 }
 *{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--text);
-font-family:Inter,system-ui,Arial,sans-serif;min-height:100vh}
-main{width:min(100% - 32px,520px);margin:45px auto}
-header{margin-bottom:35px}
-.logo{font-size:30px;font-weight:900;letter-spacing:5px}
-.tag{font-size:11px;letter-spacing:4px;color:var(--accent);margin-top:7px}
-.credit{font-size:11px;color:var(--muted);margin-top:13px}
-.panel{background:var(--panel);border:1px solid var(--line);
-border-radius:17px;padding:23px;margin-bottom:15px}
-h2{font-size:19px;margin:0 0 8px}
-p{color:var(--muted);font-size:13px;line-height:1.6}
-input,select,button{width:100%;padding:14px;border-radius:10px;
-border:1px solid var(--line);background:#0b0e15;color:var(--text);
-font:inherit;margin-top:10px}
-button{background:var(--accent);color:#11101a;font-weight:750;
-border:0;cursor:pointer}
-button.secondary{background:#202637;color:var(--text)}
-.tabs{display:flex;gap:8px;margin-bottom:16px}
+body{margin:0;min-height:100vh;background:var(--bg);color:var(--text);
+  font:16px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+main{width:min(100% - 32px,560px);margin:0 auto;padding:48px 0 32px}
+header{padding-bottom:24px;margin-bottom:32px;border-bottom:1px solid var(--line)}
+.logo{font:700 32px/1.1 Georgia,"Times New Roman",serif;letter-spacing:.04em}
+.tag{font-size:12px;font-weight:600;letter-spacing:.2em;color:var(--accent);margin-top:8px}
+.credit{font-size:13px;color:var(--muted);margin-top:4px}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:28px;margin-bottom:20px}
+h2{font-size:20px;line-height:1.3;margin:0 0 8px}
+p{color:var(--muted);font-size:14px;line-height:1.6;margin:0}
+input,select,button{display:block;width:100%;padding:12px 14px;margin-top:12px;border:1px solid var(--line);
+  border-radius:6px;background:#fff;color:var(--text);font:inherit;text-align:left}
+button{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600;cursor:pointer}
+button:hover{filter:brightness(1.12)}
+button.secondary{background:transparent;color:var(--text);border-color:var(--line)}
+button.secondary:hover{background:#ebe6da;filter:none}
+input:focus-visible,select:focus-visible,button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.tabs{display:flex;gap:8px;margin-bottom:24px}
 .tabs button{margin:0}
 .hidden{display:none!important}
-.message{font-size:13px;margin-top:13px;color:var(--accent)}
-.task{display:flex;align-items:center;gap:12px;padding:13px 0;
-border-bottom:1px solid var(--line)}
-.task input{width:19px;height:19px;margin:0;accent-color:var(--accent)}
-.task span{flex:1;font-size:14px}
-.small{font-size:11px;color:var(--muted)}
-.row{display:flex;justify-content:space-between;align-items:center;gap:10px}
-.row button{width:auto;padding:10px 14px;margin:0}
-.stat{font-size:28px;font-weight:800;margin-top:8px}
-footer{text-align:center;color:#697184;font-size:11px;margin:35px 0}
+.message{min-height:1.5em;margin-top:16px;font-size:14px;color:var(--text)}
+.task{display:flex;align-items:center;gap:12px;padding:14px 0;border-bottom:1px solid var(--line)}
+.task input{flex:none;width:20px;height:20px;margin:0;padding:0;accent-color:var(--accent)}
+.task span{flex:1;font-size:15px}
+.small{font-size:12px;letter-spacing:.08em;color:var(--muted)}
+.row{display:flex;justify-content:space-between;align-items:center;gap:12px}
+.row button{display:inline-block;width:auto;margin:0;padding:10px 16px}
+.stat{font-size:28px;font-weight:700;margin-top:4px;font-variant-numeric:tabular-nums}
+#streamLabel{margin:4px 0 24px}
+#taskList{margin-bottom:8px}
+footer{margin-top:32px;font-size:12px;color:var(--muted)}
+#auth{text-align:center}
+main:has(#auth:not(.hidden)) header{text-align:center}
+#auth input,#auth button{text-align:center}
 </style>
 </head>
 <body>
@@ -291,7 +295,7 @@ function renderTasks() {
       const del = document.createElement("button");
       del.className = "secondary";
       del.style.cssText = "width:auto;margin:0;padding:6px 10px";
-      del.textContent = "\u2715";
+      del.textContent = "Delete";
       del.setAttribute("aria-label", "Delete task");
       del.addEventListener("click", e => { e.preventDefault(); deleteTask(task); });
       item.append(del);
