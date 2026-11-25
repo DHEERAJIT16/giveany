@@ -4,7 +4,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>INVICTUS — UNCONQUERED.</title>
+<title>INVICTUS</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
 :root{
@@ -24,8 +24,6 @@ body{margin:0;min-height:100vh;background:var(--bg);color:var(--text);
 main{width:min(100% - 32px,560px);margin:0 auto;padding:48px 0 32px}
 header{padding-bottom:24px;margin-bottom:32px;border-bottom:1px solid var(--line)}
 .logo{font:700 32px/1.1 Georgia,"Times New Roman",serif;letter-spacing:.04em}
-.tag{font-size:12px;font-weight:600;letter-spacing:.2em;color:var(--accent);margin-top:8px}
-.credit{font-size:13px;color:var(--muted);margin-top:4px}
 .panel{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:28px;margin-bottom:20px}
 h2{font-size:20px;line-height:1.3;margin:0 0 8px}
 p{color:var(--muted);font-size:14px;line-height:1.6;margin:0}
@@ -49,7 +47,6 @@ input:focus-visible,select:focus-visible,button:focus-visible{outline:2px solid 
 .stat{font-size:28px;font-weight:700;margin-top:4px;font-variant-numeric:tabular-nums}
 #streamLabel{margin:4px 0 24px}
 #taskList{margin-bottom:8px}
-footer{margin-top:32px;font-size:12px;color:var(--muted)}
 #auth{text-align:center}
 main:has(#auth:not(.hidden)) header{text-align:center}
 #auth input,#auth button{text-align:center}
@@ -59,8 +56,6 @@ main:has(#auth:not(.hidden)) header{text-align:center}
 <main>
 <header>
   <div class="logo">INVICTUS</div>
-  <div class="tag">UNCONQUERED.</div>
-  <div class="credit">Entangled by Dheeraj</div>
 </header>
 
 <section id="auth">
@@ -71,16 +66,12 @@ main:has(#auth:not(.hidden)) header{text-align:center}
     </div>
 
     <div id="loginForm">
-      <h2>Welcome back.</h2>
-      <p>Enter your credentials to continue.</p>
       <input id="loginUsername" placeholder="Username" autocomplete="username">
       <input id="loginPassword" type="password" placeholder="Password" autocomplete="current-password">
       <button onclick="login()">Sign in</button>
     </div>
 
     <div id="registerForm" class="hidden">
-      <h2>Create your account.</h2>
-      <p>Enter the shared access passcode to register. Your account activates immediately.</p>
       <input id="regPasscode" type="password" placeholder="Access passcode">
       <input id="regUsername" placeholder="Choose username (3–20 characters)" autocomplete="username">
       <input id="regPassword" type="password" placeholder="Choose password (minimum 8 characters)" autocomplete="new-password">
@@ -98,7 +89,6 @@ main:has(#auth:not(.hidden)) header{text-align:center}
   <div class="panel">
     <div class="row">
       <div>
-        <div class="small">SIGNED IN AS</div>
         <h2 id="welcomeName">User</h2>
       </div>
       <button class="secondary" onclick="logout()">Logout</button>
@@ -112,13 +102,12 @@ main:has(#auth:not(.hidden)) header{text-align:center}
 
   <div id="taskArea" class="panel">
     <h2>Academics</h2>
-    <div id="taskList"><p>Loading tasks...</p></div>
+    <div id="taskList"></div>
     <input id="newTask" placeholder="Add a personal task">
     <button class="secondary" onclick="addTask()">+ Add custom task</button>
   </div>
 </section>
 
-<footer>INVICTUS · UNCONQUERED.</footer>
 </main>
 
 <script>
@@ -293,11 +282,7 @@ function renderTasks() {
     const name = document.createElement("span");
     name.textContent = task.title;
 
-    const tag = document.createElement("small");
-    tag.className = "small";
-    tag.textContent = task.is_core ? "CORE" : "PERSONAL";
-
-    item.append(checkbox,name,tag);
+item.append(checkbox,name);
     if (!task.is_core) {
       const del = document.createElement("button");
       del.className = "secondary";
