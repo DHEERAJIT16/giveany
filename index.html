@@ -10,7 +10,14 @@
 :root{
   --bg:#f4f1ea; --panel:#fffdf8; --line:#d8d2c4;
   --text:#1c1c1a; --muted:#5f5c53; --accent:#1f5c4a;
+  --field:#fff; --hover:#ebe6da; --on-accent:#fff;
+  color-scheme:light dark;
 }
+@media (prefers-color-scheme:dark){:root{
+  --bg:#121413; --panel:#1a1d1b; --line:#2f3532;
+  --text:#e9e6dd; --muted:#a19f95; --accent:#6fbf9f;
+  --field:#121413; --hover:#262b28; --on-accent:#0f1f18;
+}}
 *{box-sizing:border-box}
 body{margin:0;min-height:100vh;background:var(--bg);color:var(--text);
   font:16px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
@@ -23,11 +30,11 @@ header{padding-bottom:24px;margin-bottom:32px;border-bottom:1px solid var(--line
 h2{font-size:20px;line-height:1.3;margin:0 0 8px}
 p{color:var(--muted);font-size:14px;line-height:1.6;margin:0}
 input,select,button{display:block;width:100%;padding:12px 14px;margin-top:12px;border:1px solid var(--line);
-  border-radius:6px;background:#fff;color:var(--text);font:inherit;text-align:left}
-button{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600;cursor:pointer}
+  border-radius:6px;background:var(--field);color:var(--text);font:inherit;text-align:left}
+button{background:var(--accent);border-color:var(--accent);color:var(--on-accent);font-weight:600;cursor:pointer}
 button:hover{filter:brightness(1.12)}
 button.secondary{background:transparent;color:var(--text);border-color:var(--line)}
-button.secondary:hover{background:#ebe6da;filter:none}
+button.secondary:hover{background:var(--hover);filter:none}
 input:focus-visible,select:focus-visible,button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .tabs{display:flex;gap:8px;margin-bottom:24px}
 .tabs button{margin:0}
